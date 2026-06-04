@@ -4,7 +4,7 @@
 // with Vercel Environment Variables SHEET_URL and SHEET_TOKEN if you prefer.
 
 const DEFAULT_EXEC_URL =
-  "https://script.google.com/macros/s/AKfycbx76rNtPFVreh083xwP9kZ9syRUnnxdcxAWx39eAy4HUHE-0OEf0Bo97JSxIrrUwD5n/exec";
+  "https://script.google.com/macros/s/AKfycbwEM-uGYJMeoiEOOi2MdZ36dXIOkg93Isd2sLpHOhp5iGxrUMLhyh-eyI_TdtWj7T-B/exec";
 const DEFAULT_TOKEN = "rfr_7Qk2Lp9XmZ4";
 
 module.exports = async (req, res) => {
