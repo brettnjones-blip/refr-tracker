@@ -130,6 +130,7 @@
   }
 
   var polling = false;
+  var lastSheetCount = null;
   function pull(silent){
     if (polling) return;
     polling = true;
@@ -141,11 +142,12 @@
       (res.rows || []).forEach(function(row){
         sheet[row.date] = { radiology: row.radiology, specialist: row.specialist };
       });
+      lastSheetCount = Object.keys(sheet).length;
       polling = false;
       var localKeys = Object.keys(data);
       // SAFETY: sheet came back empty but this device still has entries ->
       // restore the sheet from this device instead of wiping local data.
-      if (Object.keys(sheet).length === 0 && localKeys.length > 0){
+      if (lastSheetCount === 0 && localKeys.length > 0){
         localKeys.forEach(function(k){ dirty.add(k); });
         saveCache(); sync = "saving"; render(); flush();
         return;
@@ -305,7 +307,7 @@
     exp += '</div>';
     h.push(exp);
 
-    h.push('<div class="foot">Live-linked to your Google Sheet · also cached on this device</div>');
+    h.push('<div class="foot">' + (lastSheetCount === null ? 'sheet: not read yet' : ('sheet holds ' + lastSheetCount + ' day' + (lastSheetCount === 1 ? '' : 's'))) + ' · linked &amp; cached · v4</div>');
 
     document.getElementById("app").innerHTML = h.join("");
   }
