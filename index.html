@@ -83,7 +83,7 @@
 <script>
 (function () {
   // ── Config ──────────────────────────────────────────────────
-  var RAD_FEE = 10, SPEC_FEE = 15, CACHE = "refr_cache_v1";
+  var RAD_FEE = 10, SPEC_FEE = 15, CACHE = "refr_cache_v2";
 
   // ── State ───────────────────────────────────────────────────
   var data = {};
@@ -106,6 +106,11 @@
   function pad(n){ return String(n).padStart(2,"0"); }
   function keyOf(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
   function parseKey(k){ var p=k.split("-").map(Number); return new Date(p[0],p[1]-1,p[2]); }
+  function normKey(s){
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    var d = new Date(s);
+    return isNaN(d.getTime()) ? s : keyOf(d);
+  }
   function money(n){ return "$"+Number(n).toLocaleString("en-AU"); }
   function dayTotal(e){ return e ? e.radiology*RAD_FEE + e.specialist*SPEC_FEE : 0; }
   function labelFor(k){ var d=parseKey(k); return DAYS[d.getDay()]+" "+d.getDate()+" "+MONTHS[d.getMonth()].slice(0,3); }
@@ -140,7 +145,7 @@
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : "bad response");
       var sheet = {};
       (res.rows || []).forEach(function(row){
-        sheet[row.date] = { radiology: row.radiology, specialist: row.specialist };
+        sheet[normKey(row.date)] = { radiology: row.radiology, specialist: row.specialist };
       });
       lastSheetCount = Object.keys(sheet).length;
       polling = false;
@@ -307,7 +312,7 @@
     exp += '</div>';
     h.push(exp);
 
-    h.push('<div class="foot">' + (lastSheetCount === null ? 'sheet: not read yet' : ('sheet holds ' + lastSheetCount + ' day' + (lastSheetCount === 1 ? '' : 's'))) + ' · linked &amp; cached · v4</div>');
+    h.push('<div class="foot">' + (lastSheetCount === null ? 'sheet: not read yet' : ('sheet holds ' + lastSheetCount + ' day' + (lastSheetCount === 1 ? '' : 's'))) + ' · linked &amp; cached · v5</div>');
 
     document.getElementById("app").innerHTML = h.join("");
   }
