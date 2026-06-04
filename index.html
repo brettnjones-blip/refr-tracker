@@ -137,15 +137,26 @@
     if (!silent){ sync = "connecting"; errMsg = ""; render(); }
     api("all").then(function(res){
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : "bad response");
-      var merged = {};
+      var sheet = {};
       (res.rows || []).forEach(function(row){
-        merged[row.date] = { radiology: row.radiology, specialist: row.specialist };
+        sheet[row.date] = { radiology: row.radiology, specialist: row.specialist };
       });
-      // keep any unsynced local edits on top of the sheet's version
-      dirty.forEach(function(k){ if (data[k]) merged[k] = data[k]; else delete merged[k]; });
+      polling = false;
+      var localKeys = Object.keys(data);
+      // SAFETY: sheet came back empty but this device still has entries ->
+      // restore the sheet from this device instead of wiping local data.
+      if (Object.keys(sheet).length === 0 && localKeys.length > 0){
+        localKeys.forEach(function(k){ dirty.add(k); });
+        saveCache(); sync = "saving"; render(); flush();
+        return;
+      }
+      // Normal merge: sheet is the source of truth, but keep this device's
+      // not-yet-saved edits on top. (Deletions propagate via the sheet read,
+      // never by pushing blanks during a sync.)
+      var merged = sheet;
+      dirty.forEach(function(k){ if (data[k]) merged[k] = data[k]; });
       var changed = JSON.stringify(merged) !== JSON.stringify(data);
       data = merged; saveCache();
-      polling = false;
       if (dirty.size){ flush(); }
       else { sync = "synced"; if (changed || !silent || wasError) render(); }
     }).catch(function(e){
