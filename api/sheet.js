@@ -19,13 +19,17 @@ module.exports = async (req, res) => {
     params.set("token", token);
     params.set("action", action);
     params.set("callback", "cb"); // the Apps Script always replies as cb({...})
+    params.set("t", Date.now().toString()); // cache-buster so reads are never stale
     if (action === "set") {
       params.set("date", String(q.date || ""));
       params.set("radiology", String(q.radiology || "0"));
       params.set("specialist", String(q.specialist || "0"));
     }
 
-    const r = await fetch(`${execUrl}?${params.toString()}`, { redirect: "follow" });
+    const r = await fetch(`${execUrl}?${params.toString()}`, {
+      redirect: "follow",
+      headers: { "Cache-Control": "no-cache" },
+    });
     const text = await r.text();
 
     // Unwrap JSONP: cb({...}) -> {...}
