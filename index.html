@@ -129,8 +129,12 @@
     return fetch("/api/sheet?" + qs, { cache: "no-store" }).then(function(r){ return r.json(); });
   }
 
-  function pull(){
-    sync = "connecting"; errMsg = ""; render();
+  var polling = false;
+  function pull(silent){
+    if (polling) return;
+    polling = true;
+    var wasError = (sync === "error");
+    if (!silent){ sync = "connecting"; errMsg = ""; render(); }
     api("all").then(function(res){
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : "bad response");
       var merged = {};
@@ -139,10 +143,14 @@
       });
       // keep any unsynced local edits on top of the sheet's version
       dirty.forEach(function(k){ if (data[k]) merged[k] = data[k]; else delete merged[k]; });
+      var changed = JSON.stringify(merged) !== JSON.stringify(data);
       data = merged; saveCache();
-      if (dirty.size){ flush(); } else { sync = "synced"; render(); }
+      polling = false;
+      if (dirty.size){ flush(); }
+      else { sync = "synced"; if (changed || !silent || wasError) render(); }
     }).catch(function(e){
-      sync = "error"; errMsg = "Couldn’t reach the sheet (" + e.message + "). Logging locally — tap ⟳ to retry."; render();
+      polling = false;
+      if (!silent){ sync = "error"; errMsg = "Couldn’t reach the sheet (" + e.message + "). Logging locally — tap ⟳ to retry."; render(); }
     });
   }
 
@@ -245,7 +253,7 @@
 
     // Month
     h.push('<div class="card"><div class="monthnav">'
-      + '<button data-act="prev-month">‹</button><div class="monthlabel">' + MONTHS[view.m] + ' ' + view.y + '</div><button data-act="next-month">›</button></div>'
+      + '<button data-act="prev-month">‹</button><div class="monthlabel" data-act="this-month" title="Jump to this month" style="cursor:pointer">' + MONTHS[view.m] + ' ' + view.y + '</div><button data-act="next-month">›</button></div>'
       + '<div class="mgrid">'
       + '<div class="mcell rad"><div class="n">' + agg.rad + '</div><div class="d">radiology · ' + money(agg.rad*RAD_FEE) + '</div></div>'
       + '<div class="mcell spec"><div class="n">' + agg.spec + '</div><div class="d">specialist · ' + money(agg.spec*SPEC_FEE) + '</div></div>'
@@ -273,7 +281,7 @@
       }
     });
     if (!showExtra) log += '<button class="ghostbtn" data-act="show-extra">＋ Log to another date</button>';
-    else log += '<input class="dateinput" type="date" max="' + todayKey + '" data-act="extra-date" />';
+    else log += '<input class="dateinput" type="date" min="2024-01-01" max="' + todayKey + '" data-act="extra-date" />';
     log += '</div>';
     h.push(log);
 
@@ -302,6 +310,7 @@
     else if (act === "open-day"){ var k = el.getAttribute("data-key"); openDay = (openDay === k ? null : k); render(); }
     else if (act === "prev-month"){ shiftMonth(-1); }
     else if (act === "next-month"){ shiftMonth(1); }
+    else if (act === "this-month"){ now = new Date(); todayKey = keyOf(now); view = { y: now.getFullYear(), m: now.getMonth() }; openDay = null; render(); }
     else if (act === "show-extra"){ showExtra = true; render(); }
     else if (act === "refresh"){ pull(); }
     else if (act === "preview"){ previewOpen = !previewOpen; render(); }
@@ -311,7 +320,11 @@
 
   document.getElementById("app").addEventListener("change", function(ev){
     var el = ev.target.closest("[data-act='extra-date']");
-    if (el && el.value){ var d = parseKey(el.value); view = { y: d.getFullYear(), m: d.getMonth() }; openDay = el.value; showExtra = false; render(); }
+    if (el && el.value){
+      var d = parseKey(el.value);
+      if (isNaN(d.getTime()) || d.getFullYear() < 2024 || d > now){ showExtra = false; render(); return; }
+      view = { y: d.getFullYear(), m: d.getMonth() }; openDay = el.value; showExtra = false; render();
+    }
   });
 
   function shiftMonth(dir){
@@ -343,6 +356,11 @@
   }
 
   // ── Boot ────────────────────────────────────────────────────
+  document.addEventListener("visibilitychange", function(){
+    if (!document.hidden){ now = new Date(); todayKey = keyOf(now); pull(true); }
+  });
+  window.addEventListener("focus", function(){ now = new Date(); todayKey = keyOf(now); pull(true); });
+  setInterval(function(){ if (!document.hidden && !showExtra) pull(true); }, 20000);
   loadCache();
   render();
   pull();
