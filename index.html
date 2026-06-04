@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Refr" />
+<meta name="theme-color" content="#ECE5D7" />
+<title>Refr — Referral billing</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  :root {
+    --paper:#ECE5D7; --card:#FAF6EC; --ink:#211F18; --muted:#7C7460; --line:#DDD4C1;
+    --rad:#1C6B5E; --rad-soft:#DBEBE6; --spec:#B0521F; --spec-soft:#F3E2D3;
+    --green:#2C6438; --shadow:rgba(45,38,20,.12);
+    --display:'Fraunces',Georgia,serif; --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  html,body { background:var(--paper); }
+  body { font-family:var(--sans); color:var(--ink); line-height:1.45; padding:18px 14px calc(40px + env(safe-area-inset-bottom)); }
+  .wrap { max-width:480px; margin:0 auto; }
+  .head { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:10px; }
+  .brand { font-family:var(--display); font-weight:600; font-size:30px; letter-spacing:-.02em; }
+  .brand small { font-family:var(--sans); font-weight:500; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); display:block; margin-top:-2px; }
+  .mtag { font-family:var(--mono); font-size:13px; color:var(--muted); text-align:right; }
+  .mtag b { display:block; font-size:17px; color:var(--green); }
+  .syncbar { display:flex; align-items:center; gap:8px; font-size:12px; margin-bottom:14px; }
+  .dot { width:8px; height:8px; border-radius:50%; }
+  .syncbar .refresh { margin-left:auto; background:transparent; border:1px solid var(--line); border-radius:8px; width:30px; height:28px; cursor:pointer; color:var(--muted); font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:14px; box-shadow:0 1px 2px var(--shadow); }
+  .lbl { font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .todayhead { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px; }
+  .todaydate { font-family:var(--display); font-size:20px; font-weight:600; }
+  .todaytotal { font-family:var(--mono); font-weight:600; font-size:26px; color:var(--green); }
+  .btns { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .addbtn { border:none; border-radius:14px; padding:16px 12px 14px; text-align:left; cursor:pointer; transition:transform .08s ease; color:#fff; }
+  .addbtn:active { transform:scale(.97); }
+  .addbtn.rad { background:var(--rad); } .addbtn.spec { background:var(--spec); }
+  .addbtn .t { font-size:15px; font-weight:600; }
+  .addbtn .f { font-family:var(--mono); font-size:12px; opacity:.82; }
+  .addbtn .c { font-family:var(--mono); font-size:34px; font-weight:600; line-height:1; margin-top:8px; }
+  .undo { display:flex; gap:8px; margin-top:8px; }
+  .undo button { flex:1; background:transparent; border:1px solid var(--line); color:var(--muted); border-radius:10px; padding:7px; font-family:var(--mono); font-size:12px; cursor:pointer; }
+  .undo button:active { background:rgba(0,0,0,.05); } .undo button:disabled { opacity:.35; }
+  .monthnav { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .monthnav button { background:transparent; border:1px solid var(--line); border-radius:10px; width:38px; height:34px; cursor:pointer; font-size:16px; color:var(--ink); }
+  .monthlabel { font-family:var(--display); font-size:19px; font-weight:600; }
+  .mgrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .mcell { border-radius:12px; padding:12px; }
+  .mcell.rad { background:var(--rad-soft); } .mcell.spec { background:var(--spec-soft); }
+  .mcell .n { font-family:var(--mono); font-size:24px; font-weight:600; }
+  .mcell.rad .n { color:var(--rad); } .mcell.spec .n { color:var(--spec); }
+  .mcell .d { font-size:11px; color:var(--muted); margin-top:2px; }
+  .mtotal { display:flex; justify-content:space-between; align-items:center; border-top:1px dashed var(--line); padding-top:12px; }
+  .mtotal span { font-size:13px; color:var(--muted); }
+  .mtotal b { font-family:var(--mono); font-size:28px; font-weight:600; color:var(--green); }
+  .row { display:flex; align-items:center; justify-content:space-between; padding:11px 4px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .row:last-of-type { border-bottom:none; }
+  .row .date { font-weight:500; font-size:14px; }
+  .chips { display:flex; gap:6px; margin-top:3px; }
+  .chip { font-family:var(--mono); font-size:11px; padding:1px 7px; border-radius:999px; }
+  .chip.rad { background:var(--rad-soft); color:var(--rad); } .chip.spec { background:var(--spec-soft); color:var(--spec); }
+  .rowtot { font-family:var(--mono); font-size:15px; font-weight:600; }
+  .editor { background:rgba(0,0,0,.025); border-radius:12px; padding:12px; margin:4px 0 10px; }
+  .erow { display:flex; align-items:center; justify-content:space-between; padding:6px 0; }
+  .stepper { display:flex; align-items:center; gap:12px; }
+  .stepper button { width:34px; height:34px; border-radius:9px; border:1px solid var(--line); background:var(--card); font-size:18px; cursor:pointer; color:var(--ink); }
+  .stepper .v { font-family:var(--mono); font-size:18px; min-width:22px; text-align:center; }
+  .ghostbtn { width:100%; background:transparent; border:1px dashed var(--line); border-radius:12px; padding:11px; color:var(--muted); font-size:13px; cursor:pointer; margin-top:6px; }
+  .dateinput { width:100%; margin-top:6px; padding:10px; border:1px solid var(--line); border-radius:10px; font-family:var(--mono); font-size:14px; background:var(--card); color:var(--ink); }
+  .empty { text-align:center; color:var(--muted); font-size:13px; padding:18px 0; }
+  .exp { display:flex; gap:10px; }
+  .exp button { flex:1; border:1px solid var(--line); background:var(--card); border-radius:11px; padding:11px; font-size:13px; font-weight:500; cursor:pointer; color:var(--ink); }
+  textarea.summary { width:100%; height:150px; margin-top:10px; border:1px solid var(--line); border-radius:10px; padding:10px; font-family:var(--mono); font-size:11px; background:var(--card); color:var(--ink); resize:vertical; }
+  .err { background:#F6E0D9; color:#8a2c1a; font-size:12px; padding:8px 12px; border-radius:10px; margin-bottom:12px; }
+  .foot { text-align:center; font-size:11px; color:var(--muted); margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+(function () {
+  // ── Config ──────────────────────────────────────────────────
+  var RAD_FEE = 10, SPEC_FEE = 15, CACHE = "refr_cache_v1";
+
+  // ── State ───────────────────────────────────────────────────
+  var data = {};
+  var dirty = new Set();
+  var sync = "connecting"; // connecting | synced | saving | error
+  var errMsg = "";
+  var openDay = null;
+  var showExtra = false;
+  var previewOpen = false;
+  var copied = false;
+
+  var now = new Date();
+  var todayKey = keyOf(now);
+  var view = { y: now.getFullYear(), m: now.getMonth() };
+
+  var MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  // ── Helpers ─────────────────────────────────────────────────
+  function pad(n){ return String(n).padStart(2,"0"); }
+  function keyOf(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function parseKey(k){ var p=k.split("-").map(Number); return new Date(p[0],p[1]-1,p[2]); }
+  function money(n){ return "$"+Number(n).toLocaleString("en-AU"); }
+  function dayTotal(e){ return e ? e.radiology*RAD_FEE + e.specialist*SPEC_FEE : 0; }
+  function labelFor(k){ var d=parseKey(k); return DAYS[d.getDay()]+" "+d.getDate()+" "+MONTHS[d.getMonth()].slice(0,3); }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+
+  // ── Local cache ─────────────────────────────────────────────
+  function loadCache(){
+    try {
+      var raw = localStorage.getItem(CACHE);
+      if (raw){ var p = JSON.parse(raw); data = p.data || {}; dirty = new Set(p.dirty || []); }
+    } catch(e){}
+  }
+  function saveCache(){
+    try { localStorage.setItem(CACHE, JSON.stringify({ data: data, dirty: Array.from(dirty) })); } catch(e){}
+  }
+
+  // ── Server calls (same-origin proxy) ────────────────────────
+  function api(action, params){
+    var qs = "action=" + encodeURIComponent(action);
+    if (params) for (var k in params) qs += "&" + encodeURIComponent(k) + "=" + encodeURIComponent(params[k]);
+    return fetch("/api/sheet?" + qs, { cache: "no-store" }).then(function(r){ return r.json(); });
+  }
+
+  function pull(){
+    sync = "connecting"; errMsg = ""; render();
+    api("all").then(function(res){
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : "bad response");
+      var merged = {};
+      (res.rows || []).forEach(function(row){
+        merged[row.date] = { radiology: row.radiology, specialist: row.specialist };
+      });
+      // keep any unsynced local edits on top of the sheet's version
+      dirty.forEach(function(k){ if (data[k]) merged[k] = data[k]; else delete merged[k]; });
+      data = merged; saveCache();
+      if (dirty.size){ flush(); } else { sync = "synced"; render(); }
+    }).catch(function(e){
+      sync = "error"; errMsg = "Couldn’t reach the sheet (" + e.message + "). Logging locally — tap ⟳ to retry."; render();
+    });
+  }
+
+  function flush(){
+    var keys = Array.from(dirty);
+    if (!keys.length){ sync = "synced"; render(); return; }
+    var i = 0;
+    function next(){
+      if (i >= keys.length){ sync = dirty.size ? "error" : "synced"; saveCache(); render(); return; }
+      pushDay(keys[i++], next);
+    }
+    next();
+  }
+
+  function pushDay(key, done){
+    var e = data[key] || { radiology: 0, specialist: 0 };
+    sync = "saving"; render();
+    api("set", { date: key, radiology: e.radiology, specialist: e.specialist }).then(function(res){
+      if (!res || !res.ok) throw new Error(res && res.error ? res.error : "rejected");
+      dirty.delete(key); saveCache();
+      sync = dirty.size ? "saving" : "synced";
+      if (done) done(); else render();
+    }).catch(function(){
+      sync = "error"; errMsg = "Saved locally — couldn’t reach the sheet. Tap ⟳ to retry.";
+      if (done) done(); else render();
+    });
+  }
+
+  // ── Mutations ───────────────────────────────────────────────
+  function updateDay(key, type, delta){
+    var cur = data[key] || { radiology: 0, specialist: 0 };
+    var upd = { radiology: cur.radiology, specialist: cur.specialist };
+    upd[type] = Math.max(0, upd[type] + delta);
+    if (upd.radiology === 0 && upd.specialist === 0) delete data[key];
+    else data[key] = upd;
+    dirty.add(key); saveCache(); render();
+    pushDay(key);
+  }
+
+  // ── Derived ─────────────────────────────────────────────────
+  function monthDays(){
+    var pre = view.y + "-" + pad(view.m + 1) + "-";
+    return Object.keys(data).filter(function(k){ return k.indexOf(pre) === 0; }).sort(function(a,b){ return a < b ? 1 : -1; });
+  }
+  function monthAgg(){
+    var rad = 0, spec = 0;
+    monthDays().forEach(function(k){ rad += data[k].radiology; spec += data[k].specialist; });
+    return { rad: rad, spec: spec, total: rad*RAD_FEE + spec*SPEC_FEE };
+  }
+  function logDays(){
+    var s = monthDays(); var set = {};
+    s.forEach(function(k){ set[k] = 1; }); if (openDay) set[openDay] = 1;
+    return Object.keys(set).sort(function(a,b){ return a < b ? 1 : -1; });
+  }
+  function exportText(){
+    var m3 = MONTHS[view.m], agg = monthAgg();
+    var lines = ["Refr referrals — " + m3 + " " + view.y, ""];
+    monthDays().slice().sort(function(a,b){ return a < b ? -1 : 1; }).forEach(function(k){
+      var e = data[k];
+      lines.push(k + "\t" + e.radiology + " radiology\t" + e.specialist + " specialist\t" + money(dayTotal(e)));
+    });
+    lines.push("\nTOTAL\t" + agg.rad + " radiology (" + money(agg.rad*RAD_FEE) + ")\t" + agg.spec + " specialist (" + money(agg.spec*SPEC_FEE) + ")\t" + money(agg.total));
+    return lines.join("\n");
+  }
+
+  // ── Render ──────────────────────────────────────────────────
+  var SYNC = {
+    connecting: { t:"Connecting…", c:"var(--muted)" },
+    synced:     { t:"Synced to sheet", c:"var(--green)" },
+    saving:     { t:"Saving…", c:"var(--spec)" },
+    error:      { t:"Sync error", c:"#b3261e" }
+  };
+
+  function render(){
+    var today = data[todayKey] || { radiology: 0, specialist: 0 };
+    var agg = monthAgg();
+    var sm = SYNC[sync];
+    var h = [];
+
+    h.push('<div class="head"><div class="brand">Refr<small>Referral billing</small></div>'
+      + '<div class="mtag">' + MONTHS[view.m].slice(0,3) + ' ' + view.y + '<b>' + money(agg.total) + '</b></div></div>');
+
+    h.push('<div class="syncbar"><span class="dot" style="background:' + sm.c + '"></span>'
+      + '<span style="color:' + sm.c + '">' + sm.t + '</span>'
+      + '<button class="refresh" data-act="refresh" title="Refresh / retry">⟳</button></div>');
+
+    if (sync === "error" && errMsg) h.push('<div class="err">' + esc(errMsg) + '</div>');
+
+    // Today
+    h.push('<div class="card"><div class="todayhead"><div>'
+      + '<div class="lbl">Today</div><div class="todaydate">' + DAYS[now.getDay()] + ' ' + now.getDate() + ' ' + MONTHS[now.getMonth()] + '</div></div>'
+      + '<div class="todaytotal">' + money(dayTotal(today)) + '</div></div>'
+      + '<div class="btns">'
+      + '<button class="addbtn rad" data-act="add" data-type="radiology"><div class="t">Radiology</div><div class="f">' + money(RAD_FEE) + ' each</div><div class="c">' + today.radiology + '</div></button>'
+      + '<button class="addbtn spec" data-act="add" data-type="specialist"><div class="t">Specialist</div><div class="f">' + money(SPEC_FEE) + ' each</div><div class="c">' + today.specialist + '</div></button>'
+      + '</div><div class="undo">'
+      + '<button data-act="sub" data-type="radiology"' + (today.radiology===0?" disabled":"") + '>− radiology</button>'
+      + '<button data-act="sub" data-type="specialist"' + (today.specialist===0?" disabled":"") + '>− specialist</button>'
+      + '</div></div>');
+
+    // Month
+    h.push('<div class="card"><div class="monthnav">'
+      + '<button data-act="prev-month">‹</button><div class="monthlabel">' + MONTHS[view.m] + ' ' + view.y + '</div><button data-act="next-month">›</button></div>'
+      + '<div class="mgrid">'
+      + '<div class="mcell rad"><div class="n">' + agg.rad + '</div><div class="d">radiology · ' + money(agg.rad*RAD_FEE) + '</div></div>'
+      + '<div class="mcell spec"><div class="n">' + agg.spec + '</div><div class="d">specialist · ' + money(agg.spec*SPEC_FEE) + '</div></div>'
+      + '</div><div class="mtotal"><span>Month total</span><b>' + money(agg.total) + '</b></div></div>');
+
+    // Log
+    var ld = logDays();
+    var log = '<div class="card"><div class="lbl" style="margin-bottom:8px">Daily log</div>';
+    if (!ld.length) log += '<div class="empty">No referrals logged this month yet.</div>';
+    ld.forEach(function(k){
+      var e = data[k] || { radiology: 0, specialist: 0 };
+      log += '<div class="row" data-act="open-day" data-key="' + k + '"><div>'
+        + '<div class="date">' + labelFor(k) + (k===todayKey?" · today":"") + '</div>'
+        + '<div class="chips"><span class="chip rad">' + e.radiology + ' rad</span><span class="chip spec">' + e.specialist + ' spec</span></div></div>'
+        + '<div class="rowtot">' + money(dayTotal(e)) + '</div></div>';
+      if (openDay === k){
+        log += '<div class="editor">'
+          + '<div class="erow"><div>Radiology <span style="color:var(--muted)">· ' + money(RAD_FEE) + '</span></div><div class="stepper">'
+          + '<button data-act="step" data-key="' + k + '" data-type="radiology" data-delta="-1">−</button><span class="v">' + e.radiology + '</span>'
+          + '<button data-act="step" data-key="' + k + '" data-type="radiology" data-delta="1">+</button></div></div>'
+          + '<div class="erow"><div>Specialist <span style="color:var(--muted)">· ' + money(SPEC_FEE) + '</span></div><div class="stepper">'
+          + '<button data-act="step" data-key="' + k + '" data-type="specialist" data-delta="-1">−</button><span class="v">' + e.specialist + '</span>'
+          + '<button data-act="step" data-key="' + k + '" data-type="specialist" data-delta="1">+</button></div></div>'
+          + '</div>';
+      }
+    });
+    if (!showExtra) log += '<button class="ghostbtn" data-act="show-extra">＋ Log to another date</button>';
+    else log += '<input class="dateinput" type="date" max="' + todayKey + '" data-act="extra-date" />';
+    log += '</div>';
+    h.push(log);
+
+    // Export
+    var exp = '<div class="card"><div class="lbl" style="margin-bottom:10px">End-of-month billing</div>'
+      + '<div class="exp"><button data-act="copy">' + (copied?"✓ Copied":"Copy summary") + '</button>'
+      + '<button data-act="csv">Download CSV</button>'
+      + '<button data-act="preview">' + (previewOpen?"Hide":"Preview") + '</button></div>';
+    if (previewOpen) exp += '<textarea class="summary" readonly>' + esc(exportText()) + '</textarea>';
+    exp += '</div>';
+    h.push(exp);
+
+    h.push('<div class="foot">Live-linked to your Google Sheet · also cached on this device</div>');
+
+    document.getElementById("app").innerHTML = h.join("");
+  }
+
+  // ── Events (delegated) ──────────────────────────────────────
+  document.getElementById("app").addEventListener("click", function(ev){
+    var el = ev.target.closest("[data-act]");
+    if (!el) return;
+    var act = el.getAttribute("data-act");
+    if (act === "add") updateDay(todayKey, el.getAttribute("data-type"), 1);
+    else if (act === "sub") updateDay(todayKey, el.getAttribute("data-type"), -1);
+    else if (act === "step") updateDay(el.getAttribute("data-key"), el.getAttribute("data-type"), Number(el.getAttribute("data-delta")));
+    else if (act === "open-day"){ var k = el.getAttribute("data-key"); openDay = (openDay === k ? null : k); render(); }
+    else if (act === "prev-month"){ shiftMonth(-1); }
+    else if (act === "next-month"){ shiftMonth(1); }
+    else if (act === "show-extra"){ showExtra = true; render(); }
+    else if (act === "refresh"){ pull(); }
+    else if (act === "preview"){ previewOpen = !previewOpen; render(); }
+    else if (act === "copy"){ doCopy(); }
+    else if (act === "csv"){ doCSV(); }
+  });
+
+  document.getElementById("app").addEventListener("change", function(ev){
+    var el = ev.target.closest("[data-act='extra-date']");
+    if (el && el.value){ var d = parseKey(el.value); view = { y: d.getFullYear(), m: d.getMonth() }; openDay = el.value; showExtra = false; render(); }
+  });
+
+  function shiftMonth(dir){
+    var m = view.m + dir, y = view.y;
+    if (m < 0){ m = 11; y--; } if (m > 11){ m = 0; y++; }
+    view = { y: y, m: m }; openDay = null; showExtra = false; render();
+  }
+
+  function doCopy(){
+    var txt = exportText();
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){ copied = true; render(); setTimeout(function(){ copied = false; render(); }, 1800); })
+        .catch(function(){ previewOpen = true; render(); });
+    } else { previewOpen = true; render(); }
+  }
+
+  function doCSV(){
+    var lines = ["Date,Radiology,Specialist,Daily Total ($)"];
+    var agg = monthAgg();
+    monthDays().slice().sort(function(a,b){ return a < b ? -1 : 1; }).forEach(function(k){
+      var e = data[k]; lines.push(k + "," + e.radiology + "," + e.specialist + "," + dayTotal(e));
+    });
+    lines.push("TOTAL," + agg.rad + "," + agg.spec + "," + agg.total);
+    var blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "refr-" + view.y + "-" + pad(view.m + 1) + ".csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  }
+
+  // ── Boot ────────────────────────────────────────────────────
+  loadCache();
+  render();
+  pull();
+})();
+</script>
+</body>
+</html>
