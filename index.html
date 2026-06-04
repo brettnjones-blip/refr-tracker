@@ -83,11 +83,11 @@
 <script>
 (function () {
   // ── Config ──────────────────────────────────────────────────
-  var RAD_FEE = 10, SPEC_FEE = 15, CACHE = "refr_cache_v2";
+  var RAD_FEE = 10, SPEC_FEE = 15, CACHE = "refr_cache_v3";
 
   // ── State ───────────────────────────────────────────────────
   var data = {};
-  var dirty = new Set();
+  var pending = {}; // key -> intended absolute totals {radiology,specialist}; {0,0} = delete
   var sync = "connecting"; // connecting | synced | saving | error
   var errMsg = "";
   var openDay = null;
@@ -120,11 +120,11 @@
   function loadCache(){
     try {
       var raw = localStorage.getItem(CACHE);
-      if (raw){ var p = JSON.parse(raw); data = p.data || {}; dirty = new Set(p.dirty || []); }
+      if (raw){ var p = JSON.parse(raw); data = p.data || {}; pending = p.pending || {}; }
     } catch(e){}
   }
   function saveCache(){
-    try { localStorage.setItem(CACHE, JSON.stringify({ data: data, dirty: Array.from(dirty) })); } catch(e){}
+    try { localStorage.setItem(CACHE, JSON.stringify({ data: data, pending: pending })); } catch(e){}
   }
 
   // ── Server calls (same-origin proxy) ────────────────────────
@@ -136,6 +136,7 @@
 
   var polling = false;
   var lastSheetCount = null;
+  function pendingCount(){ return Object.keys(pending).length; }
   function pull(silent){
     if (polling) return;
     polling = true;
@@ -149,22 +150,17 @@
       });
       lastSheetCount = Object.keys(sheet).length;
       polling = false;
-      var localKeys = Object.keys(data);
-      // SAFETY: sheet came back empty but this device still has entries ->
-      // restore the sheet from this device instead of wiping local data.
-      if (lastSheetCount === 0 && localKeys.length > 0){
-        localKeys.forEach(function(k){ dirty.add(k); });
-        saveCache(); sync = "saving"; render(); flush();
-        return;
-      }
-      // Normal merge: sheet is the source of truth, but keep this device's
-      // not-yet-saved edits on top. (Deletions propagate via the sheet read,
-      // never by pushing blanks during a sync.)
+      // Merge: sheet is the source of truth, but this device's not-yet-saved changes
+      // win — including deletions ({0,0} means remove that day).
       var merged = sheet;
-      dirty.forEach(function(k){ if (data[k]) merged[k] = data[k]; });
+      Object.keys(pending).forEach(function(k){
+        var v = pending[k];
+        if (v.radiology === 0 && v.specialist === 0) delete merged[k];
+        else merged[k] = { radiology: v.radiology, specialist: v.specialist };
+      });
       var changed = JSON.stringify(merged) !== JSON.stringify(data);
       data = merged; saveCache();
-      if (dirty.size){ flush(); }
+      if (pendingCount()){ flush(); }
       else { sync = "synced"; if (changed || !silent || wasError) render(); }
     }).catch(function(e){
       polling = false;
@@ -172,24 +168,35 @@
     });
   }
 
+  var flushing = false;
+  var syncTimer = null;
+  function scheduleFlush(){
+    sync = "saving"; render();
+    if (syncTimer) clearTimeout(syncTimer);
+    syncTimer = setTimeout(function(){ syncTimer = null; flush(); }, 700);
+  }
   function flush(){
-    var keys = Array.from(dirty);
+    if (flushing) return;
+    var keys = Object.keys(pending);
     if (!keys.length){ sync = "synced"; render(); return; }
+    flushing = true;
     var i = 0;
     function next(){
-      if (i >= keys.length){ sync = dirty.size ? "error" : "synced"; saveCache(); render(); return; }
+      if (i >= keys.length){ flushing = false; sync = pendingCount() ? "error" : "synced"; saveCache(); render(); return; }
       pushDay(keys[i++], next);
     }
     next();
   }
 
   function pushDay(key, done){
-    var e = data[key] || { radiology: 0, specialist: 0 };
+    var v = pending[key] || data[key] || { radiology: 0, specialist: 0 };
     sync = "saving"; render();
-    api("set", { date: key, radiology: e.radiology, specialist: e.specialist }).then(function(res){
+    api("set", { date: key, radiology: v.radiology, specialist: v.specialist }).then(function(res){
       if (!res || !res.ok) throw new Error(res && res.error ? res.error : "rejected");
-      dirty.delete(key); saveCache();
-      sync = dirty.size ? "saving" : "synced";
+      // clear only if it didn't change again while this request was in flight
+      if (pending[key] && pending[key].radiology === v.radiology && pending[key].specialist === v.specialist) delete pending[key];
+      saveCache();
+      sync = pendingCount() ? "saving" : "synced";
       if (done) done(); else render();
     }).catch(function(){
       sync = "error"; errMsg = "Saved locally — couldn’t reach the sheet. Tap ⟳ to retry.";
@@ -204,8 +211,9 @@
     upd[type] = Math.max(0, upd[type] + delta);
     if (upd.radiology === 0 && upd.specialist === 0) delete data[key];
     else data[key] = upd;
-    dirty.add(key); saveCache(); render();
-    pushDay(key);
+    pending[key] = { radiology: upd.radiology, specialist: upd.specialist }; // 0/0 = delete
+    saveCache(); render();
+    scheduleFlush();
   }
 
   // ── Derived ─────────────────────────────────────────────────
@@ -312,7 +320,7 @@
     exp += '</div>';
     h.push(exp);
 
-    h.push('<div class="foot">' + (lastSheetCount === null ? 'sheet: not read yet' : ('sheet holds ' + lastSheetCount + ' day' + (lastSheetCount === 1 ? '' : 's'))) + ' · linked &amp; cached · v5</div>');
+    h.push('<div class="foot">' + (lastSheetCount === null ? 'sheet: not read yet' : ('sheet holds ' + lastSheetCount + ' day' + (lastSheetCount === 1 ? '' : 's'))) + ' · linked &amp; cached · v8</div>');
 
     document.getElementById("app").innerHTML = h.join("");
   }
